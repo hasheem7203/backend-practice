@@ -2,5 +2,12 @@ from fastapi import FastAPI
 app = FastAPI()
 
 @app.get("/")
-def hello():
-    return {"message":"hello, world"}
+def read_root():
+    return { "name": "Task API",
+            "version": "1.0",
+            "endpoints": ["/tasks"] 
+        }
+
+@app.get("/health")
+def health_status():
+    return {"status ":"OK"}
