@@ -54,15 +54,24 @@ tasks = []
 
 @app.get("/tasks",summary="liast all tasks")
 def get_tasks():
-    return tasks
+    conn = get_db()
+    cursor=conn.cursor()
+    cursor.execute("Select * from tasks")
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id":r["id"], "title":r["title"],"done": bool(r["done"])} for r in rows]
 
 @app.get("/tasks/{task_id}",summary="search task by id")
 def get_task(task_id: int):
-    for task in tasks:
-        if task["id"]==task_id:
-            return task   
-    raise HTTPException (status_code=404,detail=f"Task {task_id} not found " )
-
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
+    
 @app.post("/tasks",status_code=201,summary="create new task")
 def add_task(task: TaskCreate):
     if not task.title or not task.title.strip():
