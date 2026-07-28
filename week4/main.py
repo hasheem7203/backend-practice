@@ -1,6 +1,8 @@
-from fastapi import FastAPI , HTTPException
+from fastapi import FastAPI , HTTPException, Header
 from pydantic import BaseModel
-from auth import supabase 
+from typing import Optional 
+from auth import supabase
+
 
 app = FastAPI(title="Auth API")
 
@@ -12,6 +14,19 @@ def startup_message():
 class Credentials (BaseModel):
     email: str
     password: str
+    
+@app.get("/public/info",status_code=200)
+def public_info():
+    return {"message":"welcome! This info is public."}
+
+
+@app.get("/protected/profile",status_code=200)
+def profile(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer ") or len(authorization.split(" ")) < 2:
+        raise HTTPException(status_code=401, detail= "Access token Required")
+
+    token = authorization.split(" ")[1]    
+    return {"message": "Token recieved (not verified yet )", "token_preview":token[:10]+ "..."}
     
 @app.post("/auth/signup", status_code=201)
 def signup(body: Credentials):
@@ -43,3 +58,10 @@ def login(body:Credentials):
         "access_token": result.session.access_token,
         "refresh_token": result.session.refresh_token,
     }
+    
+    
+ #   Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6ImFjNjY2OGNkLTFkNGEtNDFmNi1hOGZlLWY2ZGI0OTVhMjBiNyIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2pid210dHVmZGJlYmZrb21weHd1LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI3YWNjMzVjMC1iYWFhLTRmZTktYmMyYS1jMDE0MDVjZjRiZDMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg1MjU5ODQ2LCJpYXQiOjE3ODUyNTYyNDYsImVtYWlsIjoibXVoYW1tYWRoYXNoZWVtc2h1amFAZ21haWwuY29tIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbCI6Im11aGFtbWFkaGFzaGVlbXNodWphQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6IjdhY2MzNWMwLWJhYWEtNGZlOS1iYzJhLWMwMTQwNWNmNGJkMyJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzg1MjU2MjQ2fV0sInNlc3Npb25faWQiOiJiZGZjMTRiMi1iOGEyLTQzMjYtODg3Ny1lZmFhZTRiZWVkZDQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.4zFT8QIWm_Excdpx3wfLq-nn1pvT4zb0bD0XRfzWesJEfF0g4hJjRb3dgV5PLM52kzQT5aPkrPzT7uIYhLRuxQ
+ 
+ 
+#  $headers = @{ "Authorization" = "Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6ImFjNjY2OGNkLTFkNGEtNDFmNi1hOGZlLWY2ZGI0OTVhMjBiNyIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2pid210dHVmZGJlYmZrb21weHd1LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI3YWNjMzVjMC1iYWFhLTRmZTktYmMyYS1jMDE0MDVjZjRiZDMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg1MjU5ODQ2LCJpYXQiOjE3ODUyNTYyNDYsImVtYWlsIjoibXVoYW1tYWRoYXNoZWVtc2h1amFAZ21haWwuY29tIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbCI6Im11aGFtbWFkaGFzaGVlbXNodWphQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6IjdhY2MzNWMwLWJhYWEtNGZlOS1iYzJhLWMwMTQwNWNmNGJkMyJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzg1MjU2MjQ2fV0sInNlc3Npb25faWQiOiJiZGZjMTRiMi1iOGEyLTQzMjYtODg3Ny1lZmFhZTRiZWVkZDQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.4zFT8QIWm_Excdpx3wfLq-nn1pvT4zb0bD0XRfzWesJEfF0g4hJjRb3dgV5PLM52kzQT5aPkrPzT7uIYhLRuxQ" }
+# Invoke-RestMethod -Uri "http://localhost:8000/protected/profile" -Method GET -Headers $headers
