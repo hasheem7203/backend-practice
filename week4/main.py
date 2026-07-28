@@ -26,8 +26,22 @@ def profile(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail= "Access token Required")
 
     token = authorization.split(" ")[1]    
-    return {"message": "Token recieved (not verified yet )", "token_preview":token[:10]+ "..."}
+    try:
+        response =supabase.auth.get_user(token)
+    except Exception:
+        raise HTTPException(status_code=401,detail="invalid or expired token")
     
+    if response is None or response.user is None:
+        raise HTTPException(status_code=401,detail="Invalid or expired Token")
+    
+    user = response.user
+    return {
+        "id":user.id,
+        "email":user.email,
+        "created_at": user.created_at,
+    }
+
+
 @app.post("/auth/signup", status_code=201)
 def signup(body: Credentials):
     if not body.email or not body.password:
