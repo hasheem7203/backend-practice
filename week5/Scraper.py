@@ -59,18 +59,23 @@ def scrape_all_pages(base_url, num_pages):
             clean=clean_book(raw_book)
             all_books.append(clean)
         
-        time.sleep(1)
+        # time.sleep(1)
     return all_books
     
 def save_to_json(records,filename):
-    """ """
+    with open(filename,"w",encoding="utf-8")as f:
+        json.dump(records,f,indent=2,ensure_ascii=False)
+    print(f"Saved {len(records)} records to {filename}")
+    
+    
     
 if __name__ == "__main__":
         
     url = "https://books.toscrape.com/catalogue/page-{}.html"
 
-    all_books = scrape_all_pages(url,10)
+    all_books = scrape_all_pages(url,2)
     print(f"Total books scraped: {len(all_books)}")
-    print("Sample record:", all_books[0])
+
+    save_to_json(all_books,"books.json")
     
     
