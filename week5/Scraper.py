@@ -45,27 +45,32 @@ def clean_book(raw_book):
     }
     
 def scrape_all_pages(base_url, num_pages):
-    """"""
+    all_books = []
+    header = {"User-Agent": "RankAI-Week5-Scraper"}
+    for page_num in range(1, num_pages + 1):
+        url = base_url.format(page_num)
+        print(f"Scraping Page {page_num}: {url}")
+        html = fetch_page(url,header)
+        soup=   parse_html(html)
+        books= soup.find_all("article",class_ = "product_pod")
+        
+        for book in books:
+            raw_book = extract_book(book)
+            clean=clean_book(raw_book)
+            all_books.append(clean)
+        
+        time.sleep(1)
+    return all_books
     
 def save_to_json(records,filename):
     """ """
     
 if __name__ == "__main__":
         
-    url = "https://books.toscrape.com/"
-    headers = {"User-Agent": "RankAI-Week5-Scraper"}
+    url = "https://books.toscrape.com/catalogue/page-{}.html"
 
-    html=fetch_page(url,headers)
-    soup = parse_html(html)
-
-
-    books = soup.find_all("article", class_="product_pod")
-    print("NUmber of books found on this page:",len(books))
-    
-    first_book_raw = extract_book(books[0])
-    print("First book extracted:", first_book_raw)
-    
-    first_book_clean = clean_book(first_book_raw)
-    print("First book cleaned:", first_book_clean)
+    all_books = scrape_all_pages(url,10)
+    print(f"Total books scraped: {len(all_books)}")
+    print("Sample record:", all_books[0])
     
     
