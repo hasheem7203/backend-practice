@@ -11,7 +11,7 @@ client= OpenAI(
 
 res = client.chat.completions.create(
     model= os.environ["LLM_MODEL"],
-    messages=[{"role": "user","content":"just reply with (yes)"}],
+    messages=[{"role": "user","content":"just reply with yes"}],
 )
 
 print(res.choices[0].message.content)
