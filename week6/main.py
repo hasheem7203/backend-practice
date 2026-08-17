@@ -1,17 +1,32 @@
-import os
-from openai import OpenAI
+import os 
 from dotenv import load_dotenv
+from fastapi import FastAPI , HTTPException
+from schema import TriageInput,TriageOutput,Category,Urgency,Team
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 
-client= OpenAI(
-    base_url=os.environ["LLM_BASE_URL"],
-    api_key= os.environ["LLM_API_KEY"],
-)
+app = FastAPI()
 
-res = client.chat.completions.create(
-    model= os.environ["LLM_MODEL"],
-    messages=[{"role": "user","content":"just reply with yes"}],
-)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    first_error = exc.errors()[0]
+    field = first_error["loc"][-1]
+    return JSONResponse(
+        status_code=400,
+        content={"detail": f"Invalid input: '{field}' — {first_error['msg']}"},
+    )
 
-print(res.choices[0].message.content)
+@app.post("/triage",response_model=TriageOutput)
+def triage(payload: TriageInput):
+    if os.environ.get("LLM_STUB") == "1":
+        return TriageOutput(
+            category=Category.other,
+            urgency= Urgency.low,
+            suggested_team = Team.general_support,
+            confidence = 0.42,
+            reason = "Stub mode: no model was called.",
+        )
+        
+    raise HTTPException(status_code=500,detail="Real model call not implemented yet (Stage 2)")
