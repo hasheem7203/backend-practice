@@ -1,13 +1,24 @@
 import os 
+import json
+import re
+
 from dotenv import load_dotenv
 from fastapi import FastAPI , HTTPException
 from schema import TriageInput,TriageOutput,Category,Urgency,Team
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from openai import OpenAI
+from datetime import datetime,timezone
+from pydantic import ValidationError
 
 load_dotenv()
 
 app = FastAPI()
+
+def load_prompt(version : str ="v1")-> str:
+    path = f"prompts/triage-{version}.md"
+    with open(path,"r",encoding = "utf-8") as f:
+        return f.read()
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
@@ -29,4 +40,70 @@ def triage(payload: TriageInput):
             reason = "Stub mode: no model was called.",
         )
         
-    raise HTTPException(status_code=500,detail="Real model call not implemented yet (Stage 2)")
+    system_prompt = load_prompt("v1")
+    
+    client = OpenAI(
+        base_url=os.environ["LLM_BASE_URL"],
+        api_key=os.environ["LLM_API_KEY"],
+    )
+    
+    model=os.environ["LLM_MODEL"]
+    
+    raw_text = call_model(client,model,system_prompt,payload.text)
+    error_detail = None
+    try:
+        data = extract_json(raw_text)
+        result = TriageOutput(**data)
+        return result
+    except (json.JSONDecodeError,ValidationError) as e:
+        error_detail = str(e)
+        
+    repair_note = (
+        f"your previous answer was rejected for this reason: {error_detail}."
+        f"your previous answer was : {raw_text}. "
+        "return only corrected json matching the schema."
+    )
+    
+    raw_text_2 = call_model(client,model,system_prompt,payload.text,repair_note=repair_note)
+    try:
+        data= extract_json(raw_text_2)
+        result = TriageOutput(**data)
+        return result
+    except (json.JSONDecodeError,ValidationError) as e:
+        error_detail_2 = str(e)
+        
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/quarantine.jsonl","a",encoding = "utf-8") as f:
+        f.write(json.dumps({
+            "timestampt": datetime.now(timezone.utc).isoformat(),
+            "input": payload.text,
+            "prompt_version" : "v1",
+            "attemp_1_raw": raw_text,
+            "attemp_1_error":error_detail,
+            "attemp_2_raw": raw_text_2,
+            "attemp_2_error":error_detail_2,
+        }) + "\n")
+    
+    raise HTTPException(status_code=422,detail="model could not produce a valid response after repair attempt.")
+
+def extract_json(raw_text:str ) -> dict:
+    """strip code fefnces / extra text and parse the model.s reply as JSON."""
+    cleaned = raw_text.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$","", cleaned.strip())
+    return json.loads(cleaned)
+
+def call_model(client,model,system_prompt,user_text,repair_note:str = None):
+    messages = [
+        {"role":"system","content":system_prompt},
+        {"role":"user","content":user_text},
+    ]
+    if repair_note:
+        messages.append({"role":"user","content":repair_note})
+        
+    res = client.chat.completions.create(
+        model=model,
+        temperature=0,
+        messages=messages,
+    )
+    
+    return res.choices[0].message.content
